@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Видео Дублаж (Умно превъртане)</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1e1e1e; color: #fff; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .controls { background: #2d2d2d; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; }
+        video { width: 100%; border-radius: 8px; background: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.8); }
+        video::cue { background-color: rgba(0, 0, 0, 0.7); color: #fff; font-size: 1.2rem; }
+        input[type="file"], input[type="range"], button { width: 100%; padding: 10px; background: #3d3d3d; color: white; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; }
+        button { background: #00ffcc; color: #000; font-weight: bold; cursor: pointer; font-size: 1.1em; transition: 0.2s; }
+        button:hover { background: #00ccaa; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        label { font-weight: bold; margin-bottom: 5px; display: block; color: #00ffcc; }
+        #subtitleDisplay { margin-top: 15px; text-align: center; font-size: 1.3em; color: #ffcc00; font-weight: bold; min-height: 2.5em; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); }
+        .status { color: #ffcc00; font-size: 0.9em; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>🎬 Pro Автоматичен Дублаж</h1>
+
+    <div class="controls">
+        <div>
+            <label>1. Избери Видео:</label>
+            <input type="file" id="videoFile" accept="video/*">
+        </div>
+        <div>
+            <label>2. Избери Субтитри (.SRT):</label>
+            <input type="file" id="subFile" accept=".srt">
+            <div id="subStatus" class="status"></div>
+        </div>
+        
+        <button id="startBtn" disabled>▶️ Стартирай Генерирането на Дублаж</button>
+        
+        <div>
+            <label style="color: #ffcc00;">Скорост на дублажа: <span id="speedValue">1.0</span>x</label>
+            <input type="range" id="speedSlider" min="0.5" max="2.5" step="0.1" value="1.0">
+        </div>
+    </div>
+
+    <video id="videoPlayer" controls></video>
+    <div id="subtitleDisplay">Тук ще се показват субтитрите...</div>
+
+    <script>
+        const videoPlayer = document.getElementById('videoPlayer');
+        const speedSlider = document.getElementById('speedSlider');
+        const subtitleDisplay = document.getElementById('subtitleDisplay');
+        const startBtn = document.getElementById('startBtn');
+        const subStatus = document.getElementById('subStatus');
+        
+        let subtitles = [];
+        let itemsForAudio = []; 
+        let currentSubIndex = -1;
+        
+        let currentAudioElement = new Audio(); 
+        let textTrack = videoPlayer.addTextTrack("subtitles", "Български", "bg");
+        textTrack.mode = "showing";
+
+        let audioRetryTimer = null;
+        let isAudioPlaying = false;
+
+        speedSlider.addEventListener('input', function() { 
+            document.getElementById('speedValue').textContent = this.value; 
+            currentAudioElement.playbackRate = parseFloat(this.value);
+        });
+
+        document.getElementById('videoFile').addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                videoPlayer.src = URL.createObjectURL(e.target.files[0]);
+                videoPlayer.volume = 0.2; 
+            }
+        });
+
+        document.getElementById('subFile').addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => parseSRT(e.target.result);
+                reader.readAsText(e.target.files[0]);
+            }
+        });
+
+        function parseSRT(data) {
+            subtitles = [];
+            itemsForAudio = [];
+            if (textTrack.cues) Array.from(textTrack.cues).forEach(cue => textTrack.removeCue(cue));
+
+            const blocks = data.trim().split(/\n\s*\n/);
+            
+            blocks.forEach((block, index) => {
+                const lines = block.split('\n');
+                if (lines.length >= 3) {
+                    const timeLine = lines[1];
+                    const originalText = lines.slice(2).join('\n'); 
+                    
+                    const cleanTextForSpeech = originalText.replace(/<[^>]+>/g, '').replace(/[.,;:!?\-"'„“()]/g, ' ').replace(/\s+/g, ' ').trim();
+                    
+                    const timeRegex = /(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})/;
+                    const match = timeLine.match(timeRegex);
+                    
+                    if (match) {
+                        const start = parseInt(match[1])*3600 + parseInt(match[2])*60 + parseInt(match[3]) + parseInt(match[4])/1000;
+                        const end = parseInt(match[5])*3600 + parseInt(match[6])*60 + parseInt(match[7]) + parseInt(match[8])/1000;
+                        
+                        subtitles.push({ index, start, end, text: originalText });
+                        itemsForAudio.push({ index: index, text: cleanTextForSpeech });
+
+                        try { textTrack.addCue(new VTTCue(start, end, originalText.replace(/<[^>]+>/g, ''))); } catch(err){}
+                    }
+                }
+            });
+            
+            subStatus.textContent = `Готово! Намерени са ${subtitles.length} реплики. Можеш да стартираш дублажа.`;
+            startBtn.disabled = false;
+        }
+
+        startBtn.addEventListener('click', () => {
+            startBtn.disabled = true;
+            startBtn.textContent = "⏳ Генерирането работи на заден фон... Пусни видеото!";
+            startBtn.style.background = "#ffcc00";
+            
+            fetch('/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(itemsForAudio)
+            })
+            .then(res => res.json())
+            .then(data => {
+                subStatus.innerHTML = "<span style='color:#00ff00'>Системата работи! Можеш да превърташ свободно!</span>";
+            });
+        });
+
+        videoPlayer.addEventListener('timeupdate', () => {
+            const time = videoPlayer.currentTime;
+            const activeSubIndex = subtitles.findIndex(sub => time >= sub.start && time <= sub.end);
+
+            if (activeSubIndex !== -1 && activeSubIndex !== currentSubIndex) {
+                currentSubIndex = activeSubIndex;
+                const sub = subtitles[currentSubIndex];
+                
+                subtitleDisplay.textContent = sub.text.replace(/\n/g, ' ');
+
+                clearInterval(audioRetryTimer);
+                isAudioPlaying = false;
+
+                const expectedAudioUrl = `/audio_files/${sub.index}.mp3`;
+                
+                function tryPlayAudio() {
+                    currentAudioElement.src = expectedAudioUrl + "?t=" + new Date().getTime();
+                    currentAudioElement.playbackRate = parseFloat(speedSlider.value);
+                    
+                    currentAudioElement.play().then(() => {
+                        isAudioPlaying = true;
+                        clearInterval(audioRetryTimer);
+                    }).catch(err => {});
+                }
+
+                tryPlayAudio();
+
+                audioRetryTimer = setInterval(() => {
+                    if (currentSubIndex === sub.index && !isAudioPlaying) {
+                        tryPlayAudio();
+                    } else {
+                        clearInterval(audioRetryTimer);
+                    }
+                }, 500);
+
+            } 
+            else if (activeSubIndex === -1 && currentSubIndex !== -1) {
+                currentSubIndex = -1;
+                subtitleDisplay.textContent = "";
+                clearInterval(audioRetryTimer);
+            }
+        });
+
+        videoPlayer.addEventListener('pause', () => currentAudioElement.pause());
+        videoPlayer.addEventListener('play', () => { if(currentSubIndex !== -1) currentAudioElement.play(); });
+        
+        // НОВОТО ЗАСИЧАНЕ НА ПРЕВЪРТАНЕ (SEEK)
+        videoPlayer.addEventListener('seeked', () => {
+            currentAudioElement.pause();
+            currentSubIndex = -1;
+            subtitleDisplay.textContent = "";
+            clearInterval(audioRetryTimer);
+
+            // Намираме на коя минута сме превъртели
+            const time = videoPlayer.currentTime;
+            
+            // Търсим следващия най-близък субтитър до това време
+            const jumpIndexInfo = subtitles.find(sub => sub.end >= time);
+            
+            if (jumpIndexInfo) {
+                // Изпращаме команда до Python да смени приоритета!
+                fetch('/prioritize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ index: jumpIndexInfo.index })
+                });
+            }
+        });
+    </script>
+</body>
+</html>
