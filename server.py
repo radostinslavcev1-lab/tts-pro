@@ -4,7 +4,21 @@ import asyncio
 import edge_tts
 import os
 import sys
+from flask import Flask, request, jsonify, send_from_directory, make_response
+import os
 
+app = Flask(__name__)   # ← ТОВА ТРЯБВА ДА Е ПРЕДИ route-овете
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+AUDIO_DIR = os.path.join(BASE_DIR, "audio_files")
+
+os.makedirs(AUDIO_DIR, exist_ok=True)
+
+@app.route('/audio_files/<path:filename>')
+def serve_audio(filename):
+    response = make_response(send_from_directory(AUDIO_DIR, filename))
+    response.headers['Cache-Control'] = 'public, max-age=86400'
+    return response
 
 from flask import make_response
 
