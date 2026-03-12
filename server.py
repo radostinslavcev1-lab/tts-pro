@@ -95,4 +95,8 @@ if __name__ == '__main__':
     print("🚀 СЪРВЪРЪТ РАБОТИ (С Умна Опашка!)")
     print("👉 ОТВОРИ БРАУЗЪРА СИ И ВЛЕЗ НА АДРЕС: http://localhost:5000")
     print("="*60 + "\n")
-    app.run(host="0.0.0.0", port=10000)
+    if __name__ == '__main__':
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    print(f"\n🚀 Сървърът работи онлайн! Порт: {port}")
+    app.run(host="0.0.0.0", port=port)
