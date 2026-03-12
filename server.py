@@ -5,6 +5,16 @@ import edge_tts
 import os
 import sys
 
+
+from flask import make_response
+
+@app.route('/audio_files/<path:filename>')
+def serve_audio(filename):
+    response = make_response(send_from_directory(AUDIO_DIR, filename))
+    # Кажи на браузъра да кешира файла за 1 ден
+    response.headers['Cache-Control'] = 'public, max-age=86400'
+    return response
+
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
