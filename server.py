@@ -96,7 +96,6 @@ if __name__ == '__main__':
     print("👉 ОТВОРИ БРАУЗЪРА СИ И ВЛЕЗ НА АДРЕС: http://localhost:5000")
     print("="*60 + "\n")
     if __name__ == '__main__':
-    import os
     port = int(os.environ.get("PORT", 10000))
     print(f"\n🚀 Сървърът работи онлайн! Порт: {port}")
     app.run(host="0.0.0.0", port=port)
