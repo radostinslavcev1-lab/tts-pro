@@ -148,7 +148,7 @@
                 const expectedAudioUrl = `/audio_files/${sub.index}.mp3`;
                 
                 function tryPlayAudio() {
-                    currentAudioElement.src = expectedAudioUrl + "?t=" + new Date().getTime();
+                   currentAudioElement.src = `/audio_files/${sub.index}.mp3`;
                     currentAudioElement.playbackRate = parseFloat(speedSlider.value);
                     
                     currentAudioElement.play().then(() => {
@@ -202,4 +202,5 @@
         });
     </script>
 </body>
+
 </html>
