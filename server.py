@@ -95,4 +95,4 @@ if __name__ == '__main__':
     print("🚀 СЪРВЪРЪТ РАБОТИ (С Умна Опашка!)")
     print("👉 ОТВОРИ БРАУЗЪРА СИ И ВЛЕЗ НА АДРЕС: http://localhost:5000")
     print("="*60 + "\n")
-    app.run(port=5000)
+    app.run(host="0.0.0.0", port=10000)
